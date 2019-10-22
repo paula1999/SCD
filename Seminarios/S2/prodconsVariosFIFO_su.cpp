@@ -3,8 +3,8 @@
 // Sistemas concurrentes y Distribuidos.
 // Seminario 2. Introducción a los monitores en C++11.
 //
-// archivo: prodconsVariosFIFO_sc.cpp
-// Ejemplo de un monitor en C++11 con semántica SC, para el problema
+// archivo: prodconsVariosFIFO_su.cpp
+// Ejemplo de un monitor en C++11 con semántica SU, para el problema
 // del productor/consumidor, con varios productores y varios consumidores.
 // Opcion FIFO
 //
@@ -19,10 +19,12 @@
 #include <cassert>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 #include <random>
+#include "HoareMonitor.h"
+#include "Semaphore.h"
 
 using namespace std;
+using namespace HM;
 
 const int   np = 5, // Número hebras productoras
             nc = 4; // Número hebras consumidoras
@@ -107,9 +109,9 @@ void test_contadores (){
 }
 
 // *****************************************************************************
-// clase para monitor buffer, version FIFO, semántica SC, varios prods. y varios cons.
+// clase para monitor buffer, version FIFO, semántica SU, varios prod. y varios cons.
 
-class ProdConsNSC{
+class ProdConsNSU : public HoareMonitor{
  private:
  static const int               // constantes:
    num_celdas_total = 10;       //  núm. de entradas del buffer
@@ -118,34 +120,31 @@ class ProdConsNSC{
    primera_libre,               //  indice de celda de la próxima inserción
    primera_ocupada,
    n;
- mutex
-   cerrojo_monitor;         // cerrojo del monitor
- condition_variable         // colas condicion:
+ CondVar                    // colas condicion:
    ocupadas,                //  cola donde espera el consumidor (n>0)
    libres;                  //  cola donde espera el productor  (n<num_celdas_total)
 
  public:                    // constructor y métodos públicos
-   ProdConsNSC();           // constructor
+   ProdConsNSU();           // constructor
    int  leer();             // extraer un valor (sentencia L) (consumidor)
    void escribir(int valor); // insertar un valor (sentencia E) (productor)
 };
 // -----------------------------------------------------------------------------
 
-ProdConsNSC::ProdConsNSC(){
+ProdConsNSU::ProdConsNSU(){
    primera_libre = 0;
    primera_ocupada = 0;
    n = 0;
+   ocupadas = newCondVar();
+   libres = newCondVar();
 }
 // -----------------------------------------------------------------------------
 // función llamada por el consumidor para extraer un dato
 
-int ProdConsNSC::leer(){
-   // ganar la exclusión mutua del monitor con una guarda
-   unique_lock<mutex> guarda(cerrojo_monitor);
-
+int ProdConsNSU::leer(){
    // esperar bloqueado hasta que 0 < num_celdas_ocupadas
    while (n <= 0)
-      ocupadas.wait(guarda);
+      ocupadas.wait();
 
    // hacer la operación de lectura, actualizando estado del monitor
    assert(0 < n);
@@ -155,19 +154,16 @@ int ProdConsNSC::leer(){
    n--;
 
    // señalar al productor que hay un hueco libre, por si está esperando
-   libres.notify_one();
+   libres.signal();
 
    return valor;
 }
 // -----------------------------------------------------------------------------
 
-void ProdConsNSC::escribir(int valor){
-   // ganar la exclusión mutua del monitor con una guarda
-   unique_lock<mutex> guarda(cerrojo_monitor);
-
+void ProdConsNSU::escribir(int valor){
    // esperar bloqueado hasta que num_celdas_ocupadas < num_celdas_total
    while (n >= num_celdas_total)
-      libres.wait(guarda);
+      libres.wait();
 
    //cout << "escribir: ocup == " << num_celdas_ocupadas << ", total == " << num_celdas_total << endl ;
    assert(n < num_celdas_total);
@@ -178,12 +174,12 @@ void ProdConsNSC::escribir(int valor){
    n++;
 
    // señalar al consumidor que ya hay una celda ocupada (por si esta esperando)
-   ocupadas.notify_one();
+   ocupadas.signal();
 }
 // *****************************************************************************
 // funciones de hebras
 
-void funcion_hebra_productora (ProdConsNSC * monitor, int ih){
+void funcion_hebra_productora (MRef<ProdConsNSU> monitor, int ih){
    for (unsigned i = ih; i < (ih + num_items/np); i++){
       int valor = producir_dato(ih);
       monitor->escribir(valor);
@@ -191,7 +187,7 @@ void funcion_hebra_productora (ProdConsNSC * monitor, int ih){
 }
 // -----------------------------------------------------------------------------
 
-void funcion_hebra_consumidora (ProdConsNSC * monitor, int ih){
+void funcion_hebra_consumidora (MRef<ProdConsNSU> monitor, int ih){
    for (unsigned i = ih; i < (ih + num_items/nc); i++){
       int valor = monitor->leer();
       consumir_dato(valor);
@@ -201,18 +197,18 @@ void funcion_hebra_consumidora (ProdConsNSC * monitor, int ih){
 
 int main(){
    cout << "-------------------------------------------------------------------------------" << endl
-        << "Problema de los productores-consumidores (5 prod/ 4 cons, Monitor SC, buffer FIFO). " << endl
+        << "Problema de los productores-consumidores (5 prod/ 4 cons, Monitor SU, buffer FIFO). " << endl
         << "-------------------------------------------------------------------------------" << endl
         << flush;
 
-   ProdConsNSC monitor;
+   MRef<ProdConsNSU> monitor = Create<ProdConsNSU>();
    thread hebra_productora[np], hebra_consumidora[nc];
 
    for (int i = 0; i < np; i++)
-        hebra_productora[i] = thread(funcion_hebra_productora, &monitor, i);
+        hebra_productora[i] = thread(funcion_hebra_productora, monitor, i);
 
    for (int i = 0; i < nc; i++)
-        hebra_consumidora[i] = thread(funcion_hebra_consumidora, &monitor, i);
+        hebra_consumidora[i] = thread(funcion_hebra_consumidora, monitor, i);
 
    for (int i = 0; i < np; i++)
         hebra_productora[i].join();

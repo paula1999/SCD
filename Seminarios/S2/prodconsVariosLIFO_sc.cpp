@@ -51,8 +51,6 @@ template<int min, int max> int aleatorio(){
 //----------------------------------------------------------------------
 
 int producir_dato (int ih){
-   static int contador = 0 ;
-
    this_thread::sleep_for(chrono::milliseconds(aleatorio<20,100>()));
 
    mtx.lock();
@@ -66,7 +64,7 @@ int producir_dato (int ih){
 
 void consumir_dato (unsigned dato){
    if (num_items <= dato){
-      //cout << " dato === " << dato << ", num_items == " << num_items << endl ;
+      cout << " dato === " << dato << ", num_items == " << num_items << endl ;
       assert(dato < num_items);
    }
 
@@ -109,7 +107,7 @@ void test_contadores (){
 }
 
 // *****************************************************************************
-// clase para monitor buffer, version LIFO, semántica SC, un prod. y un cons.
+// clase para monitor buffer, version LIFO, semántica SC, varios prod. y varios cons.
 
 class ProdConsNSC{
  private:
@@ -198,7 +196,7 @@ void funcion_hebra_consumidora (ProdConsNSC * monitor, int ih){
 
 int main(){
    cout << "-------------------------------------------------------------------------------" << endl
-        << "Problema de los productores-consumidores (5 prod/ 4 cons, Monitor SC, buffer FIFO). " << endl
+        << "Problema de los productores-consumidores (5 prod/ 4 cons, Monitor SC, buffer LIFO). " << endl
         << "-------------------------------------------------------------------------------" << endl
         << flush;
 
