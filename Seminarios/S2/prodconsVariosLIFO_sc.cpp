@@ -13,7 +13,6 @@
 // Actualizado en octubre 2019 por Paula Villanueva Núñez
 // -----------------------------------------------------------------------------
 
-
 #include <iostream>
 #include <iomanip>
 #include <cassert>
@@ -30,6 +29,7 @@ const int   np = 5, // Número hebras productoras
 constexpr int num_items = 40;  // número de items a producir/consumir
 
 mutex mtx; // mutex de escritura en pantalla
+
 unsigned    cont_prod[num_items], // contadores de verificación: producidos
             cont_cons[num_items], // contadores de verificación: consumidos
             cont_nprod[np] = {0}; // contadores de verificación: nprod
@@ -39,7 +39,6 @@ unsigned    cont_prod[num_items], // contadores de verificación: producidos
 // distribuido entre dos valores enteros, ambos incluidos
 // (ambos tienen que ser dos constantes, conocidas en tiempo de compilación)
 //----------------------------------------------------------------------
-
 template<int min, int max> int aleatorio(){
   static default_random_engine generador((random_device())());
   static uniform_int_distribution<int> distribucion_uniforme(min, max) ;
@@ -49,7 +48,6 @@ template<int min, int max> int aleatorio(){
 //**********************************************************************
 // funciones comunes a las dos soluciones (fifo y lifo)
 //----------------------------------------------------------------------
-
 int producir_dato (int ih){
    this_thread::sleep_for(chrono::milliseconds(aleatorio<20,100>()));
 
@@ -60,7 +58,6 @@ int producir_dato (int ih){
    cont_prod[ih*num_items/np + cont_nprod[ih]]++;
    return ih*num_items/np + cont_nprod[ih]++;
 }
-//----------------------------------------------------------------------
 
 void consumir_dato (unsigned dato){
    if (num_items <= dato){
@@ -76,7 +73,6 @@ void consumir_dato (unsigned dato){
    cout << "                  consumido: " << dato << endl;
    mtx.unlock();
 }
-//----------------------------------------------------------------------
 
 void ini_contadores (){
    for (unsigned i = 0; i < num_items; i++){
@@ -84,8 +80,6 @@ void ini_contadores (){
       cont_cons[i] = 0;
    }
 }
-
-//----------------------------------------------------------------------
 
 void test_contadores (){
    bool ok = true;
@@ -108,7 +102,6 @@ void test_contadores (){
 
 // *****************************************************************************
 // clase para monitor buffer, version LIFO, semántica SC, varios prod. y varios cons.
-
 class ProdConsNSC{
  private:
  static const int               // constantes:
@@ -127,14 +120,12 @@ class ProdConsNSC{
    int  leer();             // extraer un valor (sentencia L) (consumidor)
    void escribir(int valor); // insertar un valor (sentencia E) (productor)
 };
-// -----------------------------------------------------------------------------
 
 ProdConsNSC::ProdConsNSC(){
    primera_libre = 0;
 }
-// -----------------------------------------------------------------------------
-// función llamada por el consumidor para extraer un dato
 
+// función llamada por el consumidor para extraer un dato
 int ProdConsNSC::leer(){
    // ganar la exclusión mutua del monitor con una guarda
    unique_lock<mutex> guarda(cerrojo_monitor);
@@ -155,7 +146,6 @@ int ProdConsNSC::leer(){
 
    return valor;
 }
-// -----------------------------------------------------------------------------
 
 void ProdConsNSC::escribir(int valor){
    // ganar la exclusión mutua del monitor con una guarda
@@ -165,7 +155,6 @@ void ProdConsNSC::escribir(int valor){
    while (primera_libre == num_celdas_total)
       libres.wait(guarda);
 
-   //cout << "escribir: ocup == " << num_celdas_ocupadas << ", total == " << num_celdas_total << endl ;
    assert(primera_libre < num_celdas_total);
 
    // hacer la operación de inserción, actualizando estado del monitor
@@ -175,16 +164,15 @@ void ProdConsNSC::escribir(int valor){
    // señalar al consumidor que ya hay una celda ocupada (por si esta esperando)
    ocupadas.notify_one();
 }
+
 // *****************************************************************************
 // funciones de hebras
-
 void funcion_hebra_productora (ProdConsNSC * monitor, int ih){
    for (unsigned i = ih; i < (ih + num_items/np); i++){
       int valor = producir_dato(ih);
       monitor->escribir(valor);
    }
 }
-// -----------------------------------------------------------------------------
 
 void funcion_hebra_consumidora (ProdConsNSC * monitor, int ih){
    for (unsigned i = ih; i < (ih + num_items/nc); i++){
@@ -192,7 +180,6 @@ void funcion_hebra_consumidora (ProdConsNSC * monitor, int ih){
       consumir_dato(valor);
    }
 }
-// -----------------------------------------------------------------------------
 
 int main(){
    cout << "-------------------------------------------------------------------------------" << endl

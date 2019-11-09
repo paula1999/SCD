@@ -5,6 +5,8 @@ compilador:=g++
 opcionesc:= -std=c++11 -pthread -Wfatal-errors
 hmonsrcs:= HoareMonitor.h HoareMonitor.cpp Semaphore.h Semaphore.cpp
 
+all: prodconsVariosFIFO_sc_exe prodconsVariosLIFO_sc_exe prodconsVariosFIFO_su_exe prodconsVariosLIFO_su_exe
+
 prodconsVariosFIFO_sc_exe: prodconsVariosFIFO_sc.cpp
 	$(compilador) $(opcionesc)  -o $@ $<
 
