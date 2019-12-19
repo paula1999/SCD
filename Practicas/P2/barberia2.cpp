@@ -1,3 +1,4 @@
+// Paula Villanueva Nuñez
 #include <iostream>
 #include <cassert>
 #include <thread>
@@ -11,7 +12,7 @@ using namespace std;
 using namespace HM;
 
 mutex mtx;
-const int n = 4; // Numero de clientes
+const int n = 5; // Numero de clientes
 
 template<int min, int max> int aleatorio (){
   static default_random_engine generador((random_device())());
@@ -25,7 +26,7 @@ void esperarFueraBarberia (int num_cliente){
 
     // informa de que comienza a esperar fuera
     mtx.lock();
-    cout << "Cliente " << num_cliente << "  :" << " empieza a esperar fuera de la barbería (" << duracion_esperar_fuera.count() << " milisegundos)" << endl;
+    cout << "\t\tCliente " << num_cliente << "  :" << " empieza a esperar fuera de la barbería (" << duracion_esperar_fuera.count() << " milisegundos)" << endl;
     mtx.unlock();
 
     // espera bloqueada un tiempo igual a 'duracion_esperar_fuera' milisegundos
@@ -33,7 +34,7 @@ void esperarFueraBarberia (int num_cliente){
 
     // informa de que ha terminado de esperar fuera
     mtx.lock();
-    cout << "Cliente " << num_cliente << "  : termina de esperar fuera." << endl;
+    cout << "\t\tCliente " << num_cliente << "  : termina de esperar fuera." << endl;
     mtx.unlock();
 }
 
@@ -43,7 +44,7 @@ void cortarPeloACliente (){
 
     // informa de que comienza a cortar
     mtx.lock();
-    cout << "Cortando pelo al cliente durante " << duracion_cortar.count() << " milisegundos" << endl;
+    cout << "\t\tCortando pelo a la pareja de clientes durante " << duracion_cortar.count() << " milisegundos" << endl;
     mtx.unlock();
 
     // espera bloqueada un tiempo igual a 'duracion_cortar' milisegundos
@@ -51,7 +52,7 @@ void cortarPeloACliente (){
 
     // informa de que ha terminado de cortar
     mtx.lock();
-    cout << "He terminado de cortar el pelo, comienza espera de nuevo cliente" << endl;
+    cout << "\t\tHe terminado de cortar el pelo, comienza espera de nueva pareja de clientes" << endl;
     mtx.unlock();
 }
 
@@ -73,38 +74,45 @@ Barberia::Barberia (){
 }
 
 void Barberia::cortarPelo (int num_cliente){
-    cout << "El cliente " << num_cliente << " ha entrado en la barberia\n";
-
-    if (!barbero.empty()){ // Si el barbero esta durmiendo
+    if (sala_espera.get_nwt() == 0){ // No hay nadie en la sala de espera
         mtx.lock();
-        cout << "El cliente " << num_cliente << " encuentra la barberia vacia\n";
+        cout << "\tEl cliente " << num_cliente << " encuentra la sala de espera vacia\n";
+        mtx.unlock();
+    }
+    else if (sala_espera.get_nwt() == 1 && !barbero.empty()){ // Si hay una persona esperando y el barbero esta durmiendo
+        mtx.lock();
+        cout << "\tEl cliente " << num_cliente << " encuentra a una persona esperando y al barbero durmiendo\n";
+        cout << "\tEl cliente " << num_cliente << " despierta al barbero\n";
         mtx.unlock();
 
         barbero.signal(); // Despierta al barbero
     }
-    else{ // Si el barbero esta cortando el pelo
-        mtx.lock();
-        cout << "El cliente " << num_cliente << " se sienta en la sala de espera\n";
-        mtx.unlock();
+    
+    mtx.lock();
+    cout << "\tEl cliente " << num_cliente << " se sienta en la sala de espera\n";
+    mtx.unlock();
 
-        sala_espera.wait(); // Espera a que lo llamen
+    sala_espera.wait(); // Espera a que lo llamen
 
-        mtx.lock();
-        cout << "El cliente " << num_cliente << " ha acabado de esperar\n";
-        mtx.unlock();
-    }
+    mtx.lock();
+    cout << "\tEl cliente " << num_cliente << " ha acabado de esperar\n";
+    mtx.unlock();
 
-    cout << "El cliente " << num_cliente << " se ha sentado en la silla\n";
+    mtx.lock();
+    cout << "\tEl cliente " << num_cliente << " se ha sentado en la silla\n";
+    mtx.unlock();
 
     silla.wait(); // Se sienta en la silla de pelar
 
-    cout << "El cliente " << num_cliente << " ha terminado de cortarse el pelo\n";
+    mtx.lock();
+    cout << "\tEl cliente " << num_cliente << " ha terminado de cortarse el pelo\n";
+    mtx.unlock();
 }
 
-void Barberia::siguienteCliente (){
-    if (sala_espera.empty() and silla.empty()){ // no hay nadie en la barberia
+void Barberia::siguienteCliente (){    
+    if ((sala_espera.get_nwt() <= 1) && silla.empty()){ // no hay ninguna pareja ni esta pelando
         mtx.lock();
-        cout << "No hay nadie en la barberia, el barbero se duerme\n";
+        cout << "No hay ninguna pareja en la barberia, el barbero se duerme\n";
         mtx.unlock();
 
         barbero.wait(); // El barbero se duerme
@@ -113,20 +121,23 @@ void Barberia::siguienteCliente (){
         cout << "El barbero se despierta\n";
         mtx.unlock();
     }
-    else if (silla.empty()){ // hay alguien en la sala de espera y no en la silla
+    
+    if (silla.empty()){ // Siempre va a estar vacia
         mtx.lock();
-        cout << "Silla vacia, que entre el siguiente cliente\n";
+        cout << "Silla vacia, que entre la siguiente pareja\n";
         mtx.unlock();
-
+        
         sala_espera.signal(); // Llama a un cliente
+        sala_espera.signal(); // Llama a otro cliente
     }
 }
 
 void Barberia::finCliente (){
     mtx.lock();
-    cout << "El cliente ha terminado. Silla libre\n";
+    cout << "La pareja de clientes ha terminado. Los clientes se van\n";
     mtx.unlock();
 
+    silla.signal(); // Vacia la silla
     silla.signal(); // Vacia la silla
 }
 

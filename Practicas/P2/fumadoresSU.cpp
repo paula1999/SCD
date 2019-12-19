@@ -89,7 +89,7 @@ void Estanco::obtenerIngrediente (int num_fumador){
 }
 
 void Estanco::esperarRecogidaIngrediente (){
-    if (mostrador != -1)
+    if (mostrador != -1) // Si no esta vacio
         estanquero.wait(); // Espera a que recojan el ingrediente
 }
 
@@ -105,9 +105,9 @@ void Estanco::ponerIngrediente (int ingrediente){
 
 // función que ejecuta la hebra del fumador
 void funcion_hebra_fumador (MRef<Estanco> estanco, int num_fumador){
-   while (true){
-       estanco->obtenerIngrediente (num_fumador);
-       fumar (num_fumador);  // empieza a fumar
+    while (true){
+        estanco->obtenerIngrediente (num_fumador);
+        fumar (num_fumador);  // empieza a fumar
    }
 }
 
@@ -124,19 +124,19 @@ void funcion_hebra_estanquero (MRef<Estanco> estanco){
 
 int main (){
    cout << "-------------------------------------------------------------------------------" << endl
-          << "Problema de los fumadores (Monitor SU)." << endl
-          << "-------------------------------------------------------------------------------" << endl
-          << flush;
+        << "Problema de los fumadores (Monitor SU)." << endl
+        << "-------------------------------------------------------------------------------" << endl
+        << flush;
 
-   MRef<Estanco> estanco = Create<Estanco>();
-   thread h_estanquero, h_fumadores[num_fumadores];
+    MRef<Estanco> estanco = Create<Estanco>();
+    thread h_estanquero, h_fumadores[num_fumadores];
 
-   h_estanquero = thread(funcion_hebra_estanquero, estanco);
+    h_estanquero = thread(funcion_hebra_estanquero, estanco);
 
-   for (int i = 0; i < num_fumadores; i++)
+    for (int i = 0; i < num_fumadores; i++)
         h_fumadores[i] = thread(funcion_hebra_fumador, estanco, i);
 
-   for (int i = 0; i < num_fumadores; i++)
+    for (int i = 0; i < num_fumadores; i++)
         h_fumadores[i].join();
 
     h_estanquero.join();
